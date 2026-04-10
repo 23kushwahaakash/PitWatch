@@ -6,7 +6,7 @@ import LogoutPopup from "../services/Logout";
 function Navbar() {
     const [showLogout, setShowLogout] = useState(false);
   return (
-    <div className="flex p-[0.5%] justify-between items-center border-b border-gray-300 shadow-b shadow-md px-[2%]">
+    <div className="flex p-[0.5%] justify-between items-center border-b border-gray-300 shadow-b shadow-md px-[2%] sticky top-0 z-50">
         <div className="flex gap-[5%]">
             <img 
             src={AdminLogo} 
