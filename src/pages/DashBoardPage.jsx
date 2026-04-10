@@ -7,10 +7,21 @@ import Potholes from "../assets/Potholes.png";
 import WaterLoggings from "../assets/WaterLoggings.png";
 import Fixed from "../assets/Fixed.png";
 import ResponseTime from "../assets/ResponseTime.png";
+import Growth from "../assets/Growth.png";
 import StatCard from "../components/StatCard";
+import { setPending, setResolved, setRejected, setTotal, setInProgress} from "../services/statSlice";
+import { useDispatch, useSelector} from "react-redux";
 
 function DashBoardPage() {
+  const dispatch = useDispatch();
+  const pending = useSelector(state => state.stat.pending);
+  const rejected = useSelector(state => state.stat.rejected);
+  const resolved = useSelector(state => state.stat.resolved);
+  const total = useSelector(state => state.stat.total);
+  const inProgress = useSelector(state => state.stat.inProgress);
+
   const accessToken = localStorage.getItem("accessToken");
+
   useEffect(() => {
     const fetchData = async () => {
       try{
@@ -21,7 +32,13 @@ function DashBoardPage() {
             },
           withCredentials: true,
         });
-        console.log("API Response: ", res.data);        
+        console.log("API Response: ", res.data); 
+        dispatch(setPending(res.data.totals.pending));
+        dispatch(setRejected(res.data.totals.rejected));
+        dispatch(setResolved(res.data.totals.resolved));
+        dispatch(setTotal(res.data.totals.total_reports));
+        dispatch(setInProgress(res.data.totals.in_progress));
+
       }catch(error){
         console.error("Error fetching data: ", error);
       }
@@ -42,20 +59,24 @@ function DashBoardPage() {
           <div className="flex w-full gap-10">
             <StatCard
             icon={WaterLoggings}
-            stat="69"
+            stat={total}
             title="Total Hazards"/>
             <StatCard
             icon={Potholes}
-            stat="69"
+            stat={rejected}
             title="Rejected"/>
             <StatCard
             icon={Fixed}
-            stat="69"
+            stat={resolved}
             title="Resolved"/>
             <StatCard
             icon={ResponseTime}
-            stat="69"
+            stat={pending}
             title="Pending"/>
+            <StatCard
+            icon={Growth}
+            stat={inProgress}
+            title="In Progress"/>
           </div>
         </div>
       </div>
