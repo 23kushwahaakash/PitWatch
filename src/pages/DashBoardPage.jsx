@@ -11,6 +11,7 @@ import Growth from "../assets/Growth.png";
 import StatCard from "../components/StatCard";
 import { setPending, setResolved, setRejected, setTotal, setInProgress} from "../services/statSlice";
 import { useDispatch, useSelector} from "react-redux";
+import DailyTrend from "../components/DailyTrend";
 
 function DashBoardPage() {
   const dispatch = useDispatch();
@@ -56,7 +57,7 @@ function DashBoardPage() {
             <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
             <p className="text-gray-500">Real-time monitoring and insights</p>
           </div>
-          <div className="flex w-full gap-10">
+          <div className="flex w-full gap-10 mb-[5%]">
             <StatCard
             icon={WaterLoggings}
             stat={total}
@@ -78,6 +79,7 @@ function DashBoardPage() {
             stat={inProgress}
             title="In Progress"/>
           </div>
+          <DailyTrend/>
         </div>
       </div>
       

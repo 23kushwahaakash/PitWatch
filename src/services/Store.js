@@ -1,8 +1,10 @@
 import { configureStore } from "@reduxjs/toolkit";
 import statReducer from "./statSlice";
+import dailyDataReducer from "./dailyDataSlice";
 const Store = configureStore({
     reducer:{
-        stat : statReducer
+        stat : statReducer,
+        dailyData : dailyDataReducer
     }
 })
 
