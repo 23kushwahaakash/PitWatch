@@ -14,7 +14,7 @@ function App() {
             
           {/* Protected routes */}
           <Route element={<ProtectedRoutes/>}>
-          <Route element={<DashBoardPage/>}></Route>
+          <Route path="/dashboard" element={<DashBoardPage/>}></Route>
           </Route>
         </Routes>
       
