@@ -10,6 +10,7 @@ import ResponseTime from "../assets/ResponseTime.png";
 import Growth from "../assets/Growth.png";
 import StatCard from "../components/StatCard";
 import { setPending, setResolved, setRejected, setTotal, setInProgress} from "../services/statSlice";
+import { setSunday, setMonday, setTuesday, setWednesday, setThursday, setFriday, setSaturday } from "../services/dailyDataSlice";
 import { useDispatch, useSelector} from "react-redux";
 import DailyTrend from "../components/DailyTrend";
 
@@ -39,6 +40,21 @@ function DashBoardPage() {
         dispatch(setResolved(res.data.totals.resolved));
         dispatch(setTotal(res.data.totals.total_reports));
         dispatch(setInProgress(res.data.totals.in_progress));
+
+        const dispatchers = {
+          Sunday: setSunday,
+          Monday: setMonday,
+          Tuesday: setTuesday,
+          Wednesday: setWednesday,
+          Thursday: setThursday,
+          Friday: setFriday,
+          Saturday: setSaturday,
+        };
+
+        res.data.trend_last_7_days.forEach((item) => {
+          const dayName = new Date(item.day).toLocaleDateString('en-US', { weekday: 'long' });
+          dispatch(dispatchers[dayName](item.count));
+        });
 
       }catch(error){
         console.error("Error fetching data: ", error);

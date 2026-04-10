@@ -2,7 +2,7 @@ import { createSlice } from "@reduxjs/toolkit";
 
 const dailyDataSlice = createSlice({
     name: "dailyData",
-    initialStats:{
+    initialState:{
         Sunday:null,
         Monday:null,
         Tuesday:null,
