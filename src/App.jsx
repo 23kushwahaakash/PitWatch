@@ -2,7 +2,8 @@ import { Route, Routes } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import { Toaster } from "react-hot-toast";
 import ProtectedRoutes from "./services/ProtectedRoutes";
-import DashBoardPage from "./pages/DashBoardPage";
+import ReportsPage from "./pages/ReportsPage";
+import DashBoardPage from "./pages/DashboardPage";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           {/* Protected routes */}
           <Route element={<ProtectedRoutes/>}>
           <Route path="/dashboard" element={<DashBoardPage/>}></Route>
+          <Route path="/reports" element={<ReportsPage/>}></Route>
           </Route>
         </Routes>
       
