@@ -3,7 +3,7 @@ import LoginPage from "./pages/LoginPage";
 import { Toaster } from "react-hot-toast";
 import ProtectedRoutes from "./services/ProtectedRoutes";
 import ReportsPage from "./pages/ReportsPage";
-import DashBoardPage from "./pages/DashboardPage";
+import DashBoardPage from "./pages/DashBoardPage";
 
 function App() {
   return (
