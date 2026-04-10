@@ -12,7 +12,7 @@ function Sidebar() {
             <img src={Growth} alt="growth" className="w-[10%]" />
             <h1 className="font-semibold text-gray-700 text-lg">Dashboard</h1>
         </div>
-        <div className="p-2 rounded-lg flex gap-2 items-center cursor-pointer transition-all duration-200 hover:scale-105 hover:translate-x-2 hover:bg-[#E9ECF4] w-[70%]">
+        <div onClick={() => navigate("/livemap")} className="p-2 rounded-lg flex gap-2 items-center cursor-pointer transition-all duration-200 hover:scale-105 hover:translate-x-2 hover:bg-[#E9ECF4] w-[70%]">
             <img src={Maps} alt="maps" className="w-[10%]" />
             <h1 className="font-semibold text-gray-700 text-lg">Live Map</h1>
         </div>
