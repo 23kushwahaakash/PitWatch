@@ -42,7 +42,7 @@ export default function LiveMap() {
   const [status, setStatus] = useState({ msg: 'Enter a location to find nearby potholes', type: '' })
   const [center, setCenter] = useState(null)
   const [reports, setReports] = useState([])
-  const [meta, setMeta] = useState(null) // warning, cluster_count, threshold
+  const [meta, setMeta] = useState(null)
 
   const accessToken = localStorage.getItem('accessToken')
 
@@ -54,7 +54,7 @@ export default function LiveMap() {
     setStatus({ msg: 'Geocoding location...', type: '' })
 
     try {
-      // Step 1: Convert location name → lat/lng
+      //Converting location name → lat/lng
       const geoRes = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
         { headers: { 'Accept-Language': 'en' } }
@@ -67,7 +67,7 @@ export default function LiveMap() {
       setCenter({ lat, lng })
       setStatus({ msg: 'Fetching nearby potholes...', type: '' })
 
-      // Step 2: Call nearby API with lat/lng
+      //Calling nearby API with lat/lng
       const apiRes = await axios.get(
         `https://pitwatch.onrender.com/api/v1/reports/nearby/?lat=${lat}&lng=${lng}&radius_km=1&limit=10`,
         {
@@ -138,7 +138,6 @@ export default function LiveMap() {
             </button>
           </div>
 
-          {/* Warning Banner — shows when warning: "High" */}
           {meta?.warning?.toLowerCase() === 'high' && (
             <div style={{
               position: 'absolute', top: 62, left: '50%', transform: 'translateX(-50%)',
@@ -150,7 +149,6 @@ export default function LiveMap() {
             </div>
           )}
 
-          {/* Status Bar */}
           <div style={{
             position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)',
             zIndex: 1000, background: 'white', borderRadius: 8, padding: '7px 14px',
@@ -160,7 +158,6 @@ export default function LiveMap() {
             {status.msg}
           </div>
 
-          {/* Legend */}
           <div style={{
             position: 'absolute', bottom: 14, right: 14, zIndex: 1000,
             background: 'white', borderRadius: 10, padding: '10px 14px',

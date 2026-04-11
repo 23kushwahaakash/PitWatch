@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { ALL_REPORTS_API_ENDPOINT } from "../services/APIs";
-import { FiSearch, FiFilter, FiDownload } from "react-icons/fi";
+import { FiSearch, FiFilter, FiDownload, FiChevronDown } from "react-icons/fi";
 import { MdOutlineLocationOn } from "react-icons/md";
 import { BsClockHistory } from "react-icons/bs";
 import { TbAlertTriangle } from "react-icons/tb";
@@ -18,8 +18,16 @@ const STATUS_COLORS = {
   pending:     { bg: "#EFF6FF", color: "#1D4ED8" },
   resolved:    { bg: "#F0FDF4", color: "#15803D" },
   in_progress: { bg: "#F0FDFA", color: "#0F766E" },
+  rejected:    { bg: "#FEF2F2", color: "#B91C1C" },
   ignored:     { bg: "#F9FAFB", color: "#6B7280" },
 };
+
+const STATUS_OPTIONS = [
+  { value: "pending",     label: "Pending" },
+  { value: "resolved",    label: "Resolved" },
+  { value: "rejected",    label: "Rejected" },
+  { value: "in_progress", label: "In Progress" },
+];
 
 function Badge({ label, style }) {
   return (
@@ -32,15 +40,109 @@ function Badge({ label, style }) {
   );
 }
 
+function StatusDropdown({ report, accessToken, onUpdate }) {
+  const [open, setOpen]       = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [current, setCurrent] = useState(report.status?.toLowerCase() || "pending");
+  const ref                   = useRef(null);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const sta = STATUS_COLORS[current] || STATUS_COLORS.ignored;
+
+  const handleSelect = async (newStatus) => {
+    if (newStatus === current) { setOpen(false); return; }
+    setOpen(false);
+    setLoading(true);
+    try {
+      await axios.patch(
+        `https://pitwatch.onrender.com/api/v1/reports/${report.id}/status/`,
+        { status: newStatus },
+        { headers: { Authorization: `Bearer ${accessToken}` }, withCredentials: true }
+      );
+      setCurrent(newStatus);
+      onUpdate(report.id, newStatus);
+    } catch (err) {
+      console.error("Failed to update status:", err);
+      // Optionally show a toast here
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const displayLabel = STATUS_OPTIONS.find((o) => o.value === current)?.label
+    || current.replace("_", " ").replace(/^\w/, (c) => c.toUpperCase());
+
+  return (
+    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        disabled={loading}
+        style={{
+          display: "flex", alignItems: "center", gap: 5,
+          padding: "3px 10px", borderRadius: 20, fontSize: 12,
+          fontWeight: 500, whiteSpace: "nowrap", cursor: loading ? "wait" : "pointer",
+          border: "none", background: sta.bg, color: sta.color,
+          opacity: loading ? 0.6 : 1, transition: "opacity 0.15s",
+        }}
+      >
+        {loading ? "Saving…" : displayLabel}
+        {!loading && <FiChevronDown size={11} />}
+      </button>
+
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", left: 0,
+          background: "#fff", border: "1px solid #E5E7EB", borderRadius: 10,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.10)", zIndex: 50,
+          minWidth: 140, padding: "4px 0", overflow: "hidden",
+        }}>
+          {STATUS_OPTIONS.map((opt) => {
+            const s = STATUS_COLORS[opt.value] || STATUS_COLORS.ignored;
+            const isActive = opt.value === current;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => handleSelect(opt.value)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  width: "100%", padding: "7px 14px", fontSize: 13,
+                  border: "none", cursor: "pointer", textAlign: "left",
+                  background: isActive ? "#F3F4F6" : "transparent",
+                  color: "#374151", fontWeight: isActive ? 600 : 400,
+                  transition: "background 0.1s",
+                }}
+                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "#F9FAFB"; }}
+                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
+              >
+                <span style={{
+                  width: 8, height: 8, borderRadius: "50%",
+                  background: s.color, flexShrink: 0,
+                }} />
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ReportsPage() {
   const accessToken = localStorage.getItem("accessToken");
-  const [reports, setReports]       = useState([]);
-  const [page, setPage]             = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const [pageSize]                  = useState(5);
-  const [loading, setLoading]       = useState(false);
-  const [search, setSearch]         = useState("");
-  const [statusFilter, setStatus]   = useState("");
+  const [reports, setReports]         = useState([]);
+  const [page, setPage]               = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
+  const [pageSize]                    = useState(5);
+  const [loading, setLoading]         = useState(false);
+  const [search, setSearch]           = useState("");
+  const [statusFilter, setStatus]     = useState("");
   const [severityFilter, setSeverity] = useState("");
 
   useEffect(() => {
@@ -78,6 +180,12 @@ function ReportsPage() {
     const matchSeverity = !severityFilter || r.severity === severityFilter;
     return matchSearch && matchStatus && matchSeverity;
   });
+
+  const handleStatusUpdate = (id, newStatus) => {
+    setReports((prev) =>
+      prev.map((rep) => (rep.id === id ? { ...rep, status: newStatus } : rep))
+    );
+  };
 
   const handleExportCSV = () => {
     const headers = ["ID", "Type", "Severity", "Location", "Status", "Created At"];
@@ -131,6 +239,7 @@ function ReportsPage() {
                   <option value="pending">Pending</option>
                   <option value="resolved">Resolved</option>
                   <option value="in_progress">In Progress</option>
+                  <option value="rejected">Rejected</option>
                   <option value="ignored">Ignored</option>
                 </select>
               </div>
@@ -166,83 +275,83 @@ function ReportsPage() {
           <div className="bg-white rounded-xl border border-gray-200 flex flex-col flex-1 min-h-0 overflow-hidden">
             <div className="w-full text-sm">
               <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                <tr>
-                  {["ID", "Type", "Severity", "Location", "Status", "Timestamp"].map((h) => (
-                    <th key={h} className="text-left px-4 py-3 font-medium">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
+                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                   <tr>
-                    <td colSpan={6} className="text-center py-10 text-gray-400">Loading...</td>
+                    {["ID", "Type", "Severity", "Location", "Status", "Timestamp"].map((h) => (
+                      <th key={h} className="text-left px-4 py-3 font-medium">{h}</th>
+                    ))}
                   </tr>
-                ) : filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-10 text-gray-400">No records found</td>
-                  </tr>
-                ) : (
-                  filtered.map((r) => {
-                    const sev = SEVERITY_COLORS[r.severity?.toLowerCase()] || SEVERITY_COLORS.low;
-                    const sta = STATUS_COLORS[r.status?.toLowerCase()]     || STATUS_COLORS.ignored;
-                    return (
-                      <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50 transition">
-                        {/* ID */}
-                        <td className="px-4 py-4 font-medium text-gray-800">
-                          HAZ-{String(r.id).padStart(3, "0")}
-                        </td>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={6} className="text-center py-10 text-gray-400">Loading...</td>
+                    </tr>
+                  ) : filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center py-10 text-gray-400">No records found</td>
+                    </tr>
+                  ) : (
+                    filtered.map((r) => {
+                      const sev = SEVERITY_COLORS[r.severity?.toLowerCase()] || SEVERITY_COLORS.low;
+                      return (
+                        <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50 transition">
+                          {/* ID */}
+                          <td className="px-4 py-4 font-medium text-gray-800">
+                            HAZ-{String(r.id).padStart(3, "0")}
+                          </td>
 
-                        {/* Type */}
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-1.5 text-gray-700">
-                            <TbAlertTriangle size={15} className="text-gray-400" />
-                            {r.description?.charAt(0).toUpperCase() + r.description?.slice(1)}
-                          </div>
-                        </td>
+                          {/* Type */}
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-1.5 text-gray-700">
+                              <TbAlertTriangle size={15} className="text-gray-400" />
+                              {r.description?.charAt(0).toUpperCase() + r.description?.slice(1)}
+                            </div>
+                          </td>
 
-                        {/* Severity */}
-                        <td className="px-4 py-4">
-                          <Badge
-                            label={r.severity?.charAt(0).toUpperCase() + r.severity?.slice(1) || "—"}
-                            style={{ background: sev.bg, color: sev.color }}
-                          />
-                        </td>
+                          {/* Severity */}
+                          <td className="px-4 py-4">
+                            <Badge
+                              label={r.severity?.charAt(0).toUpperCase() + r.severity?.slice(1) || "—"}
+                              style={{ background: sev.bg, color: sev.color }}
+                            />
+                          </td>
 
-                        {/* Location */}
-                        <td className="px-4 py-4">
-                          <div className="flex items-start gap-1 text-gray-700">
-                            <MdOutlineLocationOn size={15} className="text-gray-400 mt-0.5 shrink-0" />
-                            <span className="leading-tight">{r.title}</span>
-                          </div>
-                        </td>
+                          {/* Location */}
+                          <td className="px-4 py-4">
+                            <div className="flex items-start gap-1 text-gray-700">
+                              <MdOutlineLocationOn size={15} className="text-gray-400 mt-0.5 shrink-0" />
+                              <span className="leading-tight">{r.title}</span>
+                            </div>
+                          </td>
 
-                        {/* Status */}
-                        <td className="px-4 py-4">
-                          <Badge
-                            label={r.status?.replace("_", " ").charAt(0).toUpperCase() + r.status?.replace("_", " ").slice(1) || "—"}
-                            style={{ background: sta.bg, color: sta.color }}
-                          />
-                        </td>
+                          {/* Status — inline dropdown */}
+                          <td className="px-4 py-4">
+                            <StatusDropdown
+                              report={r}
+                              accessToken={accessToken}
+                              onUpdate={handleStatusUpdate}
+                            />
+                          </td>
 
-                        {/* Timestamp */}
-                        <td className="px-4 py-4 text-gray-500">
-                          <div className="flex items-center gap-1.5">
-                            <BsClockHistory size={13} />
-                            {r.created_at
-                              ? new Date(r.created_at).toLocaleString("en-IN", {
-                                  year: "numeric", month: "2-digit",
-                                  day: "2-digit",  hour: "2-digit", minute: "2-digit",
-                                })
-                              : "—"}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                          {/* Timestamp */}
+                          <td className="px-4 py-4 text-gray-500">
+                            <div className="flex items-center gap-1.5">
+                              <BsClockHistory size={13} />
+                              {r.created_at
+                                ? new Date(r.created_at).toLocaleString("en-IN", {
+                                    year: "numeric", month: "2-digit",
+                                    day: "2-digit",  hour: "2-digit", minute: "2-digit",
+                                  })
+                                : "—"}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
 
             {/* Pagination */}
