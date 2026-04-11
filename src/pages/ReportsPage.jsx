@@ -3,15 +3,18 @@ import axios from "axios";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import { ALL_REPORTS_API_ENDPOINT } from "../services/APIs";
-import { FiSearch, FiFilter, FiDownload, FiChevronDown } from "react-icons/fi";
-import { MdOutlineLocationOn } from "react-icons/md";
+import { FiSearch, FiFilter, FiDownload, FiChevronDown, FiMail } from "react-icons/fi";
+import { MdOutlineLocationOn, MdOutlineAccountBalance } from "react-icons/md";
 import { BsClockHistory } from "react-icons/bs";
 import { TbAlertTriangle } from "react-icons/tb";
 
-const SEVERITY_COLORS = {
-  high:   { bg: "#FEE2E2", color: "#B91C1C" },
-  medium: { bg: "#FEF9C3", color: "#92400E" },
-  low:    { bg: "#DCFCE7", color: "#166534" },
+// pothole_severity: critical / high / medium / normal / low
+const POTHOLE_SEVERITY_COLORS = {
+  critical: { bg: "#FEE2E2", color: "#991B1B" },
+  high:     { bg: "#FFEDD5", color: "#9A3412" },
+  medium:   { bg: "#FEF9C3", color: "#92400E" },
+  normal:   { bg: "#EFF6FF", color: "#1D4ED8" },
+  low:      { bg: "#DCFCE7", color: "#166534" },
 };
 
 const STATUS_COLORS = {
@@ -33,7 +36,7 @@ function Badge({ label, style }) {
   return (
     <span style={{
       padding: "3px 10px", borderRadius: 20, fontSize: 12,
-      fontWeight: 500, whiteSpace: "nowrap", ...style
+      fontWeight: 500, whiteSpace: "nowrap", ...style,
     }}>
       {label}
     </span>
@@ -46,7 +49,6 @@ function StatusDropdown({ report, accessToken, onUpdate }) {
   const [current, setCurrent] = useState(report.status?.toLowerCase() || "pending");
   const ref                   = useRef(null);
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener("mousedown", handler);
@@ -69,7 +71,6 @@ function StatusDropdown({ report, accessToken, onUpdate }) {
       onUpdate(report.id, newStatus);
     } catch (err) {
       console.error("Failed to update status:", err);
-      // Optionally show a toast here
     } finally {
       setLoading(false);
     }
@@ -175,9 +176,10 @@ function ReportsPage() {
       !q ||
       String(r.id).includes(q) ||
       r.title?.toLowerCase().includes(q) ||
-      r.description?.toLowerCase().includes(q);
-    const matchStatus   = !statusFilter   || r.status   === statusFilter;
-    const matchSeverity = !severityFilter || r.severity === severityFilter;
+      r.description?.toLowerCase().includes(q) ||
+      r.road_authority?.toLowerCase().includes(q);
+    const matchStatus   = !statusFilter   || r.status            === statusFilter;
+    const matchSeverity = !severityFilter || r.pothole_severity  === severityFilter;
     return matchSearch && matchStatus && matchSeverity;
   });
 
@@ -188,9 +190,10 @@ function ReportsPage() {
   };
 
   const handleExportCSV = () => {
-    const headers = ["ID", "Type", "Severity", "Location", "Status", "Created At"];
+    const headers = ["ID", "Type", "Pothole Severity", "Location", "Road Authority", "Authority Email", "Status", "Created At"];
     const rows = reports.map((r) => [
-      r.id, r.description, r.severity, r.title, r.status, r.created_at,
+      r.id, r.description, r.pothole_severity, r.title,
+      r.road_authority, r.road_authority_email, r.status, r.created_at,
     ]);
     const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -220,7 +223,7 @@ function ReportsPage() {
                 <FiSearch className="text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search by ID, location..."
+                  placeholder="Search by ID, location, authority..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="outline-none bg-transparent w-full text-sm"
@@ -244,7 +247,7 @@ function ReportsPage() {
                 </select>
               </div>
 
-              {/* Severity Filter */}
+              {/* Pothole Severity Filter */}
               <div className="flex items-center gap-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white cursor-pointer">
                 <FiFilter className="text-gray-500" size={14} />
                 <select
@@ -252,15 +255,17 @@ function ReportsPage() {
                   onChange={(e) => setSeverity(e.target.value)}
                   className="outline-none bg-transparent text-sm text-gray-700 cursor-pointer"
                 >
-                  <option value="">Severity</option>
+                  <option value="">Pothole Severity</option>
+                  <option value="critical">Critical</option>
                   <option value="high">High</option>
                   <option value="medium">Medium</option>
+                  <option value="normal">Normal</option>
                   <option value="low">Low</option>
                 </select>
               </div>
             </div>
 
-            {/* Export Buttons */}
+            {/* Export Button */}
             <div className="flex gap-2">
               <button
                 onClick={handleExportCSV}
@@ -273,59 +278,91 @@ function ReportsPage() {
 
           {/* Table */}
           <div className="bg-white rounded-xl border border-gray-200 flex flex-col flex-1 min-h-0 overflow-hidden">
-            <div className="w-full text-sm">
+            <div className="overflow-x-auto w-full text-sm">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                   <tr>
-                    {["ID", "Type", "Severity", "Location", "Status", "Timestamp"].map((h) => (
-                      <th key={h} className="text-left px-4 py-3 font-medium">{h}</th>
+                    {["ID", "Type", "Severity", "Location", "Road Authority", "Status", "Timestamp"].map((h) => (
+                      <th key={h} className="text-left px-4 py-3 font-medium whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-10 text-gray-400">Loading...</td>
+                      <td colSpan={7} className="text-center py-10 text-gray-400">Loading...</td>
                     </tr>
                   ) : filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-10 text-gray-400">No records found</td>
+                      <td colSpan={7} className="text-center py-10 text-gray-400">No records found</td>
                     </tr>
                   ) : (
                     filtered.map((r) => {
-                      const sev = SEVERITY_COLORS[r.severity?.toLowerCase()] || SEVERITY_COLORS.low;
+                      // Prefer pothole_severity, fall back to cluster_severity
+                      const sevKey   = (r.pothole_severity || r.cluster_severity || "normal").toLowerCase();
+                      const sev      = POTHOLE_SEVERITY_COLORS[sevKey] || POTHOLE_SEVERITY_COLORS.normal;
+                      const sevLabel = sevKey.charAt(0).toUpperCase() + sevKey.slice(1);
+
                       return (
                         <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50 transition">
+
                           {/* ID */}
-                          <td className="px-4 py-4 font-medium text-gray-800">
+                          <td className="px-4 py-4 font-medium text-gray-800 whitespace-nowrap">
                             HAZ-{String(r.id).padStart(3, "0")}
                           </td>
 
                           {/* Type */}
                           <td className="px-4 py-4">
                             <div className="flex items-center gap-1.5 text-gray-700">
-                              <TbAlertTriangle size={15} className="text-gray-400" />
+                              <TbAlertTriangle size={15} className="text-gray-400 shrink-0" />
                               {r.description?.charAt(0).toUpperCase() + r.description?.slice(1)}
                             </div>
                           </td>
 
-                          {/* Severity */}
+                          {/* Pothole Severity */}
                           <td className="px-4 py-4">
                             <Badge
-                              label={r.severity?.charAt(0).toUpperCase() + r.severity?.slice(1) || "—"}
+                              label={sevLabel}
                               style={{ background: sev.bg, color: sev.color }}
                             />
                           </td>
 
                           {/* Location */}
-                          <td className="px-4 py-4">
+                          <td className="px-4 py-4" style={{ maxWidth: 180 }}>
                             <div className="flex items-start gap-1 text-gray-700">
                               <MdOutlineLocationOn size={15} className="text-gray-400 mt-0.5 shrink-0" />
-                              <span className="leading-tight">{r.title}</span>
+                              <span className="leading-tight line-clamp-2">{r.title || "—"}</span>
                             </div>
                           </td>
 
-                          {/* Status — inline dropdown */}
+                          {/* Road Authority */}
+                          <td className="px-4 py-4" style={{ maxWidth: 200 }}>
+                            {r.road_authority ? (
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-1.5 text-gray-700 font-medium text-sm">
+                                  <MdOutlineAccountBalance size={14} className="text-indigo-400 shrink-0" />
+                                  <span>{r.road_authority}</span>
+                                </div>
+                                {r.road_authority_email && (
+                                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                                    <FiMail size={11} className="shrink-0" />
+                                    <a
+                                      href={`mailto:${r.road_authority_email}`}
+                                      className="hover:text-indigo-500 transition truncate"
+                                      title={r.road_authority_email}
+                                      style={{ maxWidth: 160 }}
+                                    >
+                                      {r.road_authority_email}
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+
+                          {/* Status dropdown */}
                           <td className="px-4 py-4">
                             <StatusDropdown
                               report={r}
@@ -335,7 +372,7 @@ function ReportsPage() {
                           </td>
 
                           {/* Timestamp */}
-                          <td className="px-4 py-4 text-gray-500">
+                          <td className="px-4 py-4 text-gray-500 whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               <BsClockHistory size={13} />
                               {r.created_at
@@ -346,6 +383,7 @@ function ReportsPage() {
                                 : "—"}
                             </div>
                           </td>
+
                         </tr>
                       );
                     })
@@ -355,7 +393,7 @@ function ReportsPage() {
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 mt-auto">
               <p className="text-sm text-gray-500">
                 Showing <span className="font-medium">{start}–{end}</span> of{" "}
                 <span className="font-medium">{totalCount}</span> records
