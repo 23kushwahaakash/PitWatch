@@ -137,14 +137,15 @@ function StatusDropdown({ report, accessToken, onUpdate }) {
 
 function ReportsPage() {
   const accessToken = localStorage.getItem("accessToken");
-  const [reports, setReports]         = useState([]);
-  const [page, setPage]               = useState(1);
-  const [totalCount, setTotalCount]   = useState(0);
-  const [pageSize]                    = useState(5);
-  const [loading, setLoading]         = useState(false);
-  const [search, setSearch]           = useState("");
-  const [statusFilter, setStatus]     = useState("");
-  const [severityFilter, setSeverity] = useState("");
+  const [reports, setReports]               = useState([]);
+  const [page, setPage]                     = useState(1);
+  const [totalCount, setTotalCount]         = useState(0);
+  const [pageSize]                          = useState(5);
+  const [loading, setLoading]               = useState(false);
+  const [search, setSearch]                 = useState("");
+  const [statusFilter, setStatus]           = useState("");
+  const [severityFilter, setSeverity]       = useState("");
+  const [authorityFilter, setAuthority]     = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -170,17 +171,36 @@ function ReportsPage() {
   const start      = (page - 1) * pageSize + 1;
   const end        = Math.min(page * pageSize, totalCount);
 
+  const authorityOptions = [
+    "NHAI",
+    "State PWD",
+    "Municipal Corporation",
+    "Municipal Authority",
+  ];
+
   const filtered = reports.filter((r) => {
     const q = search.toLowerCase();
+
     const matchSearch =
       !q ||
       String(r.id).includes(q) ||
       r.title?.toLowerCase().includes(q) ||
       r.description?.toLowerCase().includes(q) ||
       r.road_authority?.toLowerCase().includes(q);
-    const matchStatus   = !statusFilter   || r.status            === statusFilter;
-    const matchSeverity = !severityFilter || r.pothole_severity  === severityFilter;
-    return matchSearch && matchStatus && matchSeverity;
+
+    // Normalise both sides to lowercase so "Pending" === "pending" always matches
+    const matchStatus = !statusFilter ||
+      (r.status ?? "").toLowerCase() === statusFilter.toLowerCase();
+
+    // Normalise pothole_severity the same way; also check cluster_severity as fallback
+    const reportSeverity = (r.pothole_severity || r.cluster_severity || "").toLowerCase();
+    const matchSeverity  = !severityFilter ||
+      reportSeverity === severityFilter.toLowerCase();
+
+    const matchAuthority = !authorityFilter ||
+      (r.road_authority ?? "").toLowerCase() === authorityFilter.toLowerCase();
+
+    return matchSearch && matchStatus && matchSeverity && matchAuthority;
   });
 
   const handleStatusUpdate = (id, newStatus) => {
@@ -218,6 +238,7 @@ function ReportsPage() {
           {/* Toolbar */}
           <div className="flex flex-wrap gap-2 items-center justify-between bg-white rounded-xl p-3 border border-gray-200">
             <div className="flex gap-2 flex-wrap flex-1">
+
               {/* Search */}
               <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white min-w-50">
                 <FiSearch className="text-gray-400" />
@@ -263,6 +284,22 @@ function ReportsPage() {
                   <option value="low">Low</option>
                 </select>
               </div>
+
+              {/* Road Authority Filter — options built from current page data */}
+              <div className="flex items-center gap-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white cursor-pointer">
+                <MdOutlineAccountBalance className="text-gray-500" size={14} />
+                <select
+                  value={authorityFilter}
+                  onChange={(e) => setAuthority(e.target.value)}
+                  className="outline-none bg-transparent text-sm text-gray-700 cursor-pointer"
+                >
+                  <option value="">Road Authority</option>
+                  {authorityOptions.map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+              </div>
+
             </div>
 
             {/* Export Button */}
@@ -298,7 +335,6 @@ function ReportsPage() {
                     </tr>
                   ) : (
                     filtered.map((r) => {
-                      // Prefer pothole_severity, fall back to cluster_severity
                       const sevKey   = (r.pothole_severity || r.cluster_severity || "normal").toLowerCase();
                       const sev      = POTHOLE_SEVERITY_COLORS[sevKey] || POTHOLE_SEVERITY_COLORS.normal;
                       const sevLabel = sevKey.charAt(0).toUpperCase() + sevKey.slice(1);
